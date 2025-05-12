@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>YouTubeマルチビューア UI制御版</title>
+  <title>YouTubeマルチビューア 最終版</title>
   <style>
     html, body {
       margin: 0;
@@ -51,15 +51,21 @@
       border: none;
       z-index: 1;
     }
-    #controls {
+    #controls-wrapper {
       position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
+      bottom: 10px;
+      width: 100%;
+      text-align: center;
       z-index: 5;
+    }
+    #controls {
+      display: inline-block;
       background: rgba(0, 0, 0, 0.6);
       padding: 8px;
       border-radius: 8px;
+    }
+    #controls.hidden {
+      display: none;
     }
     #controls button {
       margin: 0 4px;
@@ -76,13 +82,16 @@
   </style>
 </head>
 <body>
-  <div id="controls">
-    <button onclick="setLayout(1)">1画面</button>
-    <button onclick="setLayout(2)">2画面</button>
-    <button onclick="setLayout(4)">4画面</button>
-    <button onclick="setLayout(6)">6画面</button>
-    <button onclick="setLayout(8)">8画面</button>
-    <button onclick="setLayout(10)">10画面</button>
+  <div id="controls-wrapper">
+    <div id="controls">
+      <button onclick="setLayout(1)">1画面</button>
+      <button onclick="setLayout(2)">2画面</button>
+      <button onclick="setLayout(4)">4画面</button>
+      <button onclick="setLayout(6)">6画面</button>
+      <button onclick="setLayout(8)">8画面</button>
+      <button onclick="setLayout(10)">10画面</button>
+      <button onclick="toggleControls()">UIを隠す</button>
+    </div>
   </div>
   <div id="video-container"></div>
 
@@ -90,6 +99,7 @@
   <script>
     let players = [];
     let uiElements = [];
+    let controlsVisible = true;
     const DEFAULT_VIDEO_ID = 'dQw4w9WgXcQ';
 
     function extractVideoId(url) {
@@ -130,16 +140,6 @@
         };
         ui.appendChild(btnLoad);
 
-        const btnPlay = document.createElement('button');
-        btnPlay.innerText = '▶️';
-        btnPlay.onclick = () => players[i].playVideo();
-        ui.appendChild(btnPlay);
-
-        const btnPause = document.createElement('button');
-        btnPause.innerText = '⏸️';
-        btnPause.onclick = () => players[i].pauseVideo();
-        ui.appendChild(btnPause);
-
         const playerDiv = document.createElement('div');
         playerDiv.id = `player${i}`;
         box.appendChild(ui);
@@ -163,15 +163,29 @@
       }
     }
 
+    function toggleControls() {
+      const controls = document.getElementById('controls');
+      controlsVisible = !controlsVisible;
+      controls.classList.toggle('hidden', !controlsVisible);
+    }
+
     // UI auto-hide logic
     let uiTimeout;
     function showUI() {
       document.body.style.cursor = 'default';
+      if (!controlsVisible) {
+        document.getElementById('controls').classList.remove('hidden');
+        controlsVisible = true;
+      }
       document.querySelectorAll('.player-ui').forEach(ui => ui.classList.remove('hidden'));
       clearTimeout(uiTimeout);
       uiTimeout = setTimeout(() => {
         document.body.style.cursor = 'none';
         document.querySelectorAll('.player-ui').forEach(ui => ui.classList.add('hidden'));
+        if (controlsVisible) {
+          document.getElementById('controls').classList.add('hidden');
+          controlsVisible = false;
+        }
       }, 3000);
     }
 
@@ -180,6 +194,8 @@
       showUI();
       if (e.key === 'Escape') {
         uiElements.forEach(ui => ui.classList.remove('hidden'));
+        document.getElementById('controls').classList.remove('hidden');
+        controlsVisible = true;
       }
     });
   </script>
