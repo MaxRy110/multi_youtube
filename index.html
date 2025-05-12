@@ -2,14 +2,16 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YouTubeマルチビューア（UIトグル対応）</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTubeマルチビューア 高機能版</title>
   <style>
     html, body {
       margin: 0;
       height: 100%;
       background: #000;
+      overflow: hidden;
+      cursor: none;
     }
     #video-container {
       height: 100%;
@@ -22,52 +24,49 @@
       width: 100%;
       height: 100%;
     }
-    .video-frame {
+    .player-ui {
       position: absolute;
-      top: 0; left: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 4px;
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      z-index: 2;
+      transition: opacity 0.5s;
+    }
+    .player-ui.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .player-ui input[type='range'] {
+      width: 80px;
+    }
+    .url-input {
+      flex: 1;
+    }
+    iframe {
       width: 100%;
       height: 100%;
       border: none;
-    }
-    .url-input {
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      right: 10px;
-      display: flex;
       z-index: 1;
-    }
-    .url-input input {
-      flex: 1;
-      padding: 5px;
-      border: none;
-      border-radius: 4px 0 0 4px;
-      font-size: 14px;
-    }
-    .url-input button {
-      padding: 5px 10px;
-      border: none;
-      background: #28a745;
-      color: white;
-      cursor: pointer;
-      border-radius: 0 4px 4px 0;
-    }
-    .url-input button:hover {
-      background: #218838;
     }
     #controls {
       position: absolute;
       top: 10px;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 2;
+      z-index: 5;
       background: rgba(0, 0, 0, 0.6);
       padding: 8px;
       border-radius: 8px;
     }
     #controls button {
-      margin: 0 5px;
-      padding: 5px 10px;
+      margin: 0 4px;
+      padding: 6px 12px;
       font-size: 14px;
       color: white;
       background: #444;
@@ -87,82 +86,108 @@
     <button onclick="setLayout(6)">6画面</button>
     <button onclick="setLayout(8)">8画面</button>
     <button onclick="setLayout(10)">10画面</button>
-    <button onclick="hideControls()">動画だけ表示</button>
   </div>
-
   <div id="video-container"></div>
 
+  <script src="https://www.youtube.com/iframe_api"></script>
   <script>
-    const videoContainer = document.getElementById('video-container');
-    const DEFAULT_URL = 'https://www.youtube.com/embed/dQw4w9WgXcQ';
-    let controlsHidden = false;
+    let players = [];
+    const DEFAULT_VIDEO_ID = 'dQw4w9WgXcQ';
 
-    function extractEmbedUrl(url) {
-      const match = url.match(/(?:\?v=|\/embed\/|youtu\.be\/)([\w-]{11})/);
-      return match ? 'https://www.youtube.com/embed/' + match[1] : DEFAULT_URL;
+    function extractVideoId(url) {
+      const match = url.match(/(?:v=|\/embed\/|youtu\.be\/)([\w-]{11})/);
+      return match ? match[1] : DEFAULT_VIDEO_ID;
+    }
+
+    function onYouTubeIframeAPIReady() {
+      setLayout(2);
     }
 
     function setLayout(count) {
-      videoContainer.innerHTML = '';
-      let columns = 1;
-      if (count === 2) columns = 2;
-      else if (count === 4) columns = 2;
-      else if (count === 6) columns = 3;
-      else if (count === 8) columns = 4;
-      else if (count === 10) columns = 5;
-      videoContainer.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+      players = [];
+      const container = document.getElementById('video-container');
+      container.innerHTML = '';
+      const columns = count <= 1 ? 1 : count <= 2 ? 2 : count <= 4 ? 2 : count <= 6 ? 3 : count <= 8 ? 4 : 5;
+      container.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
 
       for (let i = 0; i < count; i++) {
         const box = document.createElement('div');
         box.className = 'video-box';
 
-        const iframe = document.createElement('iframe');
-        iframe.className = 'video-frame';
-        iframe.src = DEFAULT_URL;
-        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-        iframe.allowFullscreen = true;
+        const playerDiv = document.createElement('div');
+        playerDiv.id = `player${i}`;
+        box.appendChild(playerDiv);
 
-        const inputDiv = document.createElement('div');
-        inputDiv.className = 'url-input';
+        const ui = document.createElement('div');
+        ui.className = 'player-ui';
 
         const input = document.createElement('input');
-        input.type = 'text';
-        input.placeholder = 'YouTubeのURLを貼ってください';
+        input.className = 'url-input';
+        input.placeholder = 'YouTube URL';
+        ui.appendChild(input);
 
-        const button = document.createElement('button');
-        button.innerText = '更新';
-        button.onclick = () => {
-          const newUrl = extractEmbedUrl(input.value);
-          iframe.src = newUrl;
+        const btnLoad = document.createElement('button');
+        btnLoad.innerText = '読み込み';
+        btnLoad.onclick = () => {
+          const id = extractVideoId(input.value);
+          players[i].loadVideoById(id);
         };
+        ui.appendChild(btnLoad);
 
-        inputDiv.appendChild(input);
-        inputDiv.appendChild(button);
-        box.appendChild(iframe);
-        box.appendChild(inputDiv);
-        videoContainer.appendChild(box);
+        const btnPlay = document.createElement('button');
+        btnPlay.innerText = '▶️';
+        btnPlay.onclick = () => players[i].playVideo();
+        ui.appendChild(btnPlay);
+
+        const btnPause = document.createElement('button');
+        btnPause.innerText = '⏸️';
+        btnPause.onclick = () => players[i].pauseVideo();
+        ui.appendChild(btnPause);
+
+        const btnSeek = document.createElement('button');
+        btnSeek.innerText = '+10秒';
+        btnSeek.onclick = () => {
+          const time = players[i].getCurrentTime();
+          players[i].seekTo(time + 10, true);
+        };
+        ui.appendChild(btnSeek);
+
+        const volume = document.createElement('input');
+        volume.type = 'range';
+        volume.min = 0;
+        volume.max = 100;
+        volume.value = 100;
+        volume.oninput = () => players[i].setVolume(volume.value);
+        ui.appendChild(volume);
+
+        box.appendChild(ui);
+        container.appendChild(box);
+
+        const player = new YT.Player(playerDiv.id, {
+          videoId: DEFAULT_VIDEO_ID,
+          events: {
+            'onReady': () => player.setVolume(100)
+          }
+        });
+
+        players.push(player);
       }
     }
 
-    function hideControls() {
-      document.getElementById('controls').style.display = 'none';
-      const inputs = document.querySelectorAll('.url-input');
-      inputs.forEach(div => div.style.display = 'none');
-      controlsHidden = true;
+    // UI auto-hide logic
+    let uiTimeout;
+    function showUI() {
+      document.body.style.cursor = 'default';
+      document.querySelectorAll('.player-ui').forEach(ui => ui.classList.remove('hidden'));
+      clearTimeout(uiTimeout);
+      uiTimeout = setTimeout(() => {
+        document.body.style.cursor = 'none';
+        document.querySelectorAll('.player-ui').forEach(ui => ui.classList.add('hidden'));
+      }, 3000);
     }
 
-    // Escapeキーで再表示
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && controlsHidden) {
-        document.getElementById('controls').style.display = 'block';
-        const inputs = document.querySelectorAll('.url-input');
-        inputs.forEach(div => div.style.display = 'flex');
-        controlsHidden = false;
-      }
-    });
-
-    // 初期表示は2画面
-    setLayout(2);
+    document.addEventListener('mousemove', showUI);
+    document.addEventListener('keydown', showUI);
   </script>
 </body>
 </html>
