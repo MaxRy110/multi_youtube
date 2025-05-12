@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>YouTubeマルチビューア 高機能版</title>
+  <title>YouTubeマルチビューア UI制御版</title>
   <style>
     html, body {
       margin: 0;
@@ -26,7 +26,7 @@
     }
     .player-ui {
       position: absolute;
-      bottom: 0;
+      top: 0;
       left: 0;
       right: 0;
       background: rgba(0, 0, 0, 0.6);
@@ -41,9 +41,6 @@
     .player-ui.hidden {
       opacity: 0;
       pointer-events: none;
-    }
-    .player-ui input[type='range'] {
-      width: 80px;
     }
     .url-input {
       flex: 1;
@@ -92,6 +89,7 @@
   <script src="https://www.youtube.com/iframe_api"></script>
   <script>
     let players = [];
+    let uiElements = [];
     const DEFAULT_VIDEO_ID = 'dQw4w9WgXcQ';
 
     function extractVideoId(url) {
@@ -105,6 +103,7 @@
 
     function setLayout(count) {
       players = [];
+      uiElements = [];
       const container = document.getElementById('video-container');
       container.innerHTML = '';
       const columns = count <= 1 ? 1 : count <= 2 ? 2 : count <= 4 ? 2 : count <= 6 ? 3 : count <= 8 ? 4 : 5;
@@ -113,10 +112,6 @@
       for (let i = 0; i < count; i++) {
         const box = document.createElement('div');
         box.className = 'video-box';
-
-        const playerDiv = document.createElement('div');
-        playerDiv.id = `player${i}`;
-        box.appendChild(playerDiv);
 
         const ui = document.createElement('div');
         ui.className = 'player-ui';
@@ -131,6 +126,7 @@
         btnLoad.onclick = () => {
           const id = extractVideoId(input.value);
           players[i].loadVideoById(id);
+          ui.classList.add('hidden');
         };
         ui.appendChild(btnLoad);
 
@@ -144,33 +140,26 @@
         btnPause.onclick = () => players[i].pauseVideo();
         ui.appendChild(btnPause);
 
-        const btnSeek = document.createElement('button');
-        btnSeek.innerText = '+10秒';
-        btnSeek.onclick = () => {
-          const time = players[i].getCurrentTime();
-          players[i].seekTo(time + 10, true);
-        };
-        ui.appendChild(btnSeek);
-
-        const volume = document.createElement('input');
-        volume.type = 'range';
-        volume.min = 0;
-        volume.max = 100;
-        volume.value = 100;
-        volume.oninput = () => players[i].setVolume(volume.value);
-        ui.appendChild(volume);
-
+        const playerDiv = document.createElement('div');
+        playerDiv.id = `player${i}`;
         box.appendChild(ui);
+        box.appendChild(playerDiv);
         container.appendChild(box);
 
         const player = new YT.Player(playerDiv.id, {
           videoId: DEFAULT_VIDEO_ID,
           events: {
-            'onReady': () => player.setVolume(100)
+            'onReady': () => player.setVolume(100),
+            'onStateChange': (e) => {
+              if (e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.ENDED) {
+                ui.classList.remove('hidden');
+              }
+            }
           }
         });
 
         players.push(player);
+        uiElements.push(ui);
       }
     }
 
@@ -187,7 +176,12 @@
     }
 
     document.addEventListener('mousemove', showUI);
-    document.addEventListener('keydown', showUI);
+    document.addEventListener('keydown', (e) => {
+      showUI();
+      if (e.key === 'Escape') {
+        uiElements.forEach(ui => ui.classList.remove('hidden'));
+      }
+    });
   </script>
 </body>
 </html>
