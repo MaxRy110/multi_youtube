@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YouTubeマルチビューア（拡張版）</title>
+  <title>YouTubeマルチビューア（UIトグル対応）</title>
   <style>
     html, body {
       margin: 0;
@@ -95,6 +95,7 @@
   <script>
     const videoContainer = document.getElementById('video-container');
     const DEFAULT_URL = 'https://www.youtube.com/embed/dQw4w9WgXcQ';
+    let controlsHidden = false;
 
     function extractEmbedUrl(url) {
       const match = url.match(/(?:\?v=|\/embed\/|youtu\.be\/)([\w-]{11})/);
@@ -147,7 +148,18 @@
       document.getElementById('controls').style.display = 'none';
       const inputs = document.querySelectorAll('.url-input');
       inputs.forEach(div => div.style.display = 'none');
+      controlsHidden = true;
     }
+
+    // Escapeキーで再表示
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && controlsHidden) {
+        document.getElementById('controls').style.display = 'block';
+        const inputs = document.querySelectorAll('.url-input');
+        inputs.forEach(div => div.style.display = 'flex');
+        controlsHidden = false;
+      }
+    });
 
     // 初期表示は2画面
     setLayout(2);
